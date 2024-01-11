@@ -22,7 +22,7 @@ void *handler(void *arg) {
 
         char header[45] = HTTP_HEADER_OK;
         string_cat(resp, header, 45 + 1);
-        resp_len += 45;
+        resp_len += 44;
 
         if (send(clientfd, resp, resp_len, 0) < 0) {
             perror("send error");
