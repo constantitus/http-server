@@ -4,21 +4,15 @@
 
 COMP			 =	$(CC) $(FLAGS)
 FLAGS			 = 	--debug -g
-BIN 			 = 	main
-OBJ 			 = 	main.o http.o helpers.o
+BIN 			 = 	server
+OBJ 			 = 	main.o
 FILES 			 = 	*.c *.h
 
-$(BIN):				$(OBJ)
+$(BIN):				$(OBJ) $(FILES)
 	$(COMP) -o 		$(BIN) $(OBJ)
 
-main.o:    			main.c
+main.o:    			main.c $(FILES)
 	$(COMP) -c -o 	main.o main.c
-
-http.o:    			http.c http.h
-	$(COMP) -c -o 	http.o http.c
-
-helpers.o:    		helpers.c helpers.h
-	$(COMP) -c -o 	helpers.o helpers.c
 
 # $(OBJ): 			$(FILES)
 
@@ -26,6 +20,6 @@ run: 				$(BIN)
 	./$(BIN)
 
 clean:
-	rm 				*.o main
+	rm 				*.o $(BIN)
 
 .PHONY: run clean
