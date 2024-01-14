@@ -38,6 +38,9 @@ int http_handle(http_server *server,
                 char *pattern,
                 void (*handler)(http_request *, http_response_writer *)
                 ) {
+    if (!server->handlers)
+        return -1; // Should never happen
+
     int count = 0;
     if (strcmp(pattern, "/") != 0) {
         count = server->handlers_count;

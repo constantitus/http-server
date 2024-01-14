@@ -52,7 +52,9 @@ http_server *http_server_new();
     The 'handler' function must take (http_request *r, http_response_writer *2)
     as arguments.
     Memory for the http_request * is managed by the library and fd is closed 
-    automatically when the handler returns. */
+    automatically when the handler returns.
+    Returns 0 if successful. 
+    Returns -1 in case of error. */
 int http_handle(http_server *server,
                 char *pattern,
                 void (*handler)(http_request *, http_response_writer *));
@@ -63,21 +65,29 @@ int http_listen_and_serve(const http_server *server);
 
 
 /*  Sets the status of the response header */
-int http_set_status(http_response_writer *w, http_status status);
+void http_set_status(http_response_writer *w, http_status status);
 
-/*  Adds a Set-Cookie header to the provided http_response_writer's headers.
-    */
+// TODO: Add more fields
+/*  Calls http_set_header with the "Set-Cookie" header name and the cookie
+    data as value.
+    Returns 0 if successful.
+    Returns -1 in case of error. */
 int http_set_cookie(http_response_writer *w,
                     const char *name,
                     const char *value,
                     ...);
 
-/*  Adds a header to the provided http_response_writer's headers */
+/*  Adds a header to the provided http_response_writer's headers.
+    Returns 0 if successful.
+    Returns -1 in case of error. */
 int http_set_header(http_response_writer *w,
                     const char *name,
                     const char *value);
                     
-/*   */
+/*  Writes to the client fd after the header has been sent.
+    This is used to write the html response or to send data to the client.
+    Returns 0 if successful.
+    Returns -1 in case of error. */
 int http_write(http_response_writer *w, const char *buf, size_t len);
 
 

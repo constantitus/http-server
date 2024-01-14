@@ -16,8 +16,6 @@ http_response_writer *http_response_writer_new() {
     return w;
 }
 
-// TODO: send everything in a single call to send()
-
 void http_handle_writing(const http_request *r, http_response_writer *w) {
     // Send the header
     // TODO: Either add more status codes or just let the user set the status.
@@ -60,16 +58,15 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
     w = NULL;
 }
 
-
-int http_set_status(http_response_writer *w, http_status status) {
+// Do we even need a function for this ?
+void http_set_status(http_response_writer *w, http_status status) {
     w->status = status;
-    return 0;
 }
 
 int http_write(http_response_writer *w, const char *buf, size_t len) {
     if (!buf) return -1;
     if (!w->responses) {
-        return -1;
+        return -1; // Should not happen
     }
 
     w->responses[w->resp_count] = malloc(len * sizeof(char));
@@ -83,20 +80,21 @@ int http_set_cookie(http_response_writer *w,
                     const char *name,
                     const char *value,
                     ...) {
-
+    // TODO: variadic args for more cookie values.
     char *cookie = (char *)malloc(128 * sizeof(char));
     char *tmp = cookie + snprintf(cookie, 128, "%s=%s", name, value);
 
-    http_set_header(w, "Set-Cookie", cookie);
+    int res = http_set_header(w, "Set-Cookie", cookie);
     free(cookie);
-    
-    return 0;
+    return res;
 }
-
 
 int http_set_header(http_response_writer *w,
                     const char *name,
                     const char *value) {
+    if (!w->headers)
+        return -1; // Should not happen
+
     w->headers[w->headers_count] = (char *)malloc(256 * sizeof(char));
     int written = snprintf(w->headers[w->headers_count],
                         256,
