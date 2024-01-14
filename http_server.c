@@ -9,172 +9,85 @@
 #include "http_server.h"
 #include "helpers.h"
 
-#define MAX_HEADER_LENGTH 1024 * 1024
+
+http_request *http_request_new(int *fd, const http_server *server);
+
+void http_free_request(http_request *r);
+
+int http_parse_first_line(http_request *r);
+
+int http_read_header(http_request *r);
+
+
+http_response_writer *http_response_writer_new();
+
+void http_handle_writing(const http_request *r, http_response_writer *w);
+
 
 
 http_server *http_server_new() {
     http_server *server = (http_server *)malloc(sizeof(http_server));
-    server->handlers = (http_handler_data *)malloc(sizeof(http_handler_data));
-    server->handlers->func = malloc(64 * sizeof(void *(*)(http_request *)));
-    server->handlers->path = (char **)malloc(64 * sizeof(char *));
+    server->handlers = (http_handlers **)malloc(64 * sizeof(void *));
+    server->addr = "";
+    server->port = 8080;
+    
     return server;
-}
-
-http_request *http_request_new(int fd, http_server *server) {
-    http_request *r = (http_request *)malloc(sizeof(http_request));
-    r->fd = fd;
-    r->server = server;
-    return r;
-}
-
-void http_free_request(http_request *r) {
-    if (r->query) {
-        free(r->query);
-        r->query = NULL;
-    }
-    if (r->path) {
-        free(r->path);
-        r->path = NULL;
-    }
-    if (r->header) {
-        free(r->header);
-        r->header = NULL;
-    }
-    close(r->fd);
-    free(r);
-    r = NULL; // is this necessary ?
 }
 
 int http_handle(http_server *server,
                 char *pattern,
-                void (*handler)(http_request *)
+                void (*handler)(http_request *, http_response_writer *)
                 ) {
     int count = 0;
     if (strcmp(pattern, "/") != 0) {
-        count = server->handlers->count;
-        server->handlers->count++;
+        count = server->handlers_count;
+        server->handlers_count++;
     }
-    server->handlers->func[count] = handler;
-    server->handlers->path[count] = malloc(sizeof(char) * strlen(pattern));
-    server->handlers->path[count] = pattern;
-    server->handlers->count++;
+    server->handlers[count] = malloc(sizeof(http_handlers));
+    server->handlers[count]->func = handler;
+    server->handlers[count]->path = malloc(sizeof(char) * strlen(pattern));
+    server->handlers[count]->path = pattern;
+    server->handlers_count++;
     return 0;
-}
-
-/*  Parses r->method, r->path and r->query from the first line of the header.
-    The first line looks something like
-    "GET /path?query_string=value HTTP/1.1\r\n".
-    Returns -1 if error, (url not found, url doesn't end in ' ').
-    Returns 0 if successful. */
-static int http_parse_first_line(http_request *r) {
-    if (!r->header) return -1;
-
-    if (buffer_begins(r->header, "GET"))
-        r->method = HTTP_GET;
-    else if (buffer_begins(r->header, "POST"))
-        r->method = HTTP_POST;
-
-    int endl = string_find(r->header, "\r\n");
-    int path_start = string_find_char(r->header, '/');
-    // There should be a '/' on the first line.
-    if (path_start > endl)
-        return -1;
-
-    char *tmp = r->header + path_start;
-    endl -= path_start;
-
-    int end = string_find_char(tmp, ' ');
-    if (end <= 1) {
-        r->path = (char *)malloc(sizeof(char) * 2);
-        r->path[0] = '/';
-        r->path[1] = '\0';
-        return 0;
-    }
-    // There should also be a ' ' after the path or query string.
-    if (end > endl)
-        return -1;
-
-    int qs_begin = string_find_char(tmp, '?');
-
-    int path_end;
-    if (qs_begin > 0 && qs_begin < end)
-        path_end = qs_begin;
-    else
-        path_end = end;
-
-    r->path = (char *)malloc(sizeof(char) * (path_end + 1));
-    int i = 0;
-    for (; i < path_end; i++)
-        r->path[i] = tmp[i];
-
-    if (qs_begin > 0 && qs_begin < end) {
-        tmp += qs_begin + 1;
-        r->query = (char *)malloc(sizeof(char) * (end - qs_begin + 1));
-        i = 0;
-        for (; i < (end - qs_begin - 1); i++)
-            r->query[i] = tmp[i];
-        r->query[i] = '\0';
-    }
-    return 0;
-}
-
-/*  Reads from the client fd until it reaches "\r\n\r\n".
-    Result is stored in r->header
-    Returns 0 if successful
-    Returns -1 if the connection ended before reaching "\r\n\r\n" */
-static int http_read_header(http_request *r) {
-    r->header = (char *)malloc(sizeof(char) * MAX_HEADER_LENGTH);
-    char *tmp = r->header;
-
-    ssize_t received = 1;
-    for (int i = 0;received > 0;i++, tmp++) {
-        received = recv(r->fd, tmp, sizeof(char), 0);
-        // TODO: rewrite this
-        if (r->header[i]   == '\n' &&
-            r->header[i-1] == '\r' &&
-            r->header[i-2] == '\n' &&
-            r->header[i-3] == '\r')
-            return 0;
-    }
-
-    free(r->header);
-    return -1;
 }
 
 static void *http_handler_mux(void *args) {
     http_request *r = (http_request *)args;
 
     if (http_read_header(r) < 0) {
-        close(r->fd);
+        send(*r->fd, "HTTP/1.1 413 Entity Too Large\r\n\r\n", 34, 0);
+        close(*r->fd);
         free(r);
         return NULL;
     }
 
     if (http_parse_first_line(r) < 0) {
         free(r->header);
-        close(r->fd);
+        close(*r->fd);
         free(r);
         return NULL;
     }
 
-    printf("\"%s\", \"%s\", %d, %d\n\n", r->path, r->query,
-           string_len(r->path), string_len(r->query));
+    http_response_writer *w = http_response_writer_new();
 
-    for (int i = 0; i < r->server->handlers->count; i++) {
-        if (strcmp(r->server->handlers->path[i], r->path) == 0) {
-            r->server->handlers->func[i](r);
+    for (int i = 0; i < r->server->handlers_count; i++) {
+        if (strcmp(r->server->handlers[i]->path, r->path) == 0) {
+            r->server->handlers[i]->func(r, w);
+            http_handle_writing(r, w);   
             http_free_request(r);
             return NULL;
         }
     }
-    r->server->handlers->func[0](r);
+    // Defaults to "/"
+    r->server->handlers[0]->func(r, w);
+    http_handle_writing(r, w);   
     http_free_request(r);
     return NULL;
 }
 
-int http_listen_and_serve(http_server *server, int port) {
-    if (server->handlers->count == 0) {
-        perror("no handlers");
+int http_listen_and_serve(const http_server *server) {
+    if (server->handlers_count == 0) {
+        perror("No handlers defined");
         return -1;
     }
 
@@ -182,12 +95,19 @@ int http_listen_and_serve(http_server *server, int port) {
 
     struct sockaddr_in addr = {
         AF_INET,
-        htons(port),
+        htons(server->port),
         0,
     };
+    if (string_len(server->addr))
+        addr.sin_addr.s_addr = inet_addr(server->addr);
 
+    // Don't leave the socket open after closing the server.
     int option = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
+
+
+    printf("Starting server on address %s:%d\n",
+           inet_ntoa(addr.sin_addr), server->port);
 
     if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         perror("bind failed");
@@ -202,9 +122,9 @@ int http_listen_and_serve(http_server *server, int port) {
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-        int clientfd;
+        int *clientfd = malloc(sizeof(int));
 
-        if ((clientfd = accept(
+        if ((*clientfd = accept(
             sockfd,
             (struct sockaddr *)&client_addr,
             &client_addr_len)) < 0) {
@@ -220,47 +140,3 @@ int http_listen_and_serve(http_server *server, int port) {
     }
     return 0;
 }
-
-
-/* static void process_query_string(char *str) {
-    // replace + with space
-    char *tmp = str;
-    int n = string_find_char(tmp, '+');
-    while (n != -1) {
-        tmp += n;
-        *tmp = ' ';
-        n = string_find_char(tmp, '+');
-    }
-
-    int i = 0;
-    tmp = str;
-    while (str[i]) {
-        while (str[i] && str[i] != '%') {
-            i += 1;
-        }
-        if (str[i] == '%') {
-            tmp = &(str[i]);
-            int hex = 0;
-            i += 1;
-            int j = 1;
-            while (j >= 0) {
-                if (str[i] >= 'A' && str[i] <= 'F') {
-                    hex += (str[i] - 'A') + 10;
-                }
-                if (str[i] >= '0' && str[i] <= '9') {
-                    hex += (str[i] - '0');
-                }
-                if (j) {
-                    hex *= 16;
-                }
-                j -= 1;
-                i += 1;
-            }
-            tmp[0] = hex;
-            tmp += 1;
-            string_shift(tmp);
-            string_shift(tmp);
-            i -= 2;
-        }
-    }
-} */
