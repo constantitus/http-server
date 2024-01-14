@@ -6,6 +6,14 @@
 #include "http_server.h"
 
 void index_handler(http_request *r, http_response_writer *w) {
+
+    char *buffer = (char *)calloc(1024, sizeof(char));
+    ssize_t bytes_received = recv(*r->fd, buffer, 1024, 0);
+    if (bytes_received > 0) {
+        printf("%s\n", buffer);
+    }
+    free(buffer);
+
     http_write(w, 
                "<!Doctype html>"
                "<html>"

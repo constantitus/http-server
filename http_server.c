@@ -5,10 +5,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <pthread.h>
+#include <signal.h>
 
 #include "http_server.h"
 #include "helpers.h"
-
 
 http_request *http_request_new(int *fd, const http_server *server);
 
@@ -93,6 +93,9 @@ int http_listen_and_serve(const http_server *server) {
         perror("No handlers defined");
         return -1;
     }
+
+    // Catch SIGPIPE
+    signal(SIGPIPE, SIG_IGN);
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
