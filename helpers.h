@@ -28,15 +28,9 @@ int string_cat(char *destination, const char *source, int size);
     Returns -1 when nothing was found */
 int string_find(const char *string, const char *to_find);
 
-/*  Same as tek_str_find_str, but starts from given index */
-int string_find_from(const char *string, const char *to_find, int from);
-
 /*    Returns index of first instance of a character in a string.
     Returns -1 if not found */
 int string_find_char(const char *s, const char to_find);
-
-/*  Same as tek_str_find_char, but starts from given index 'form'. */
-int string_find_char_from(const char *s, const char to_find, int from);
 
 /*  Removes an ascii char or unicode codepoint at front of string
     assumes a valid utf8 string */

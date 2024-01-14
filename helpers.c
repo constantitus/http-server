@@ -187,67 +187,11 @@ int string_find(const char *string, const char *to_find) {
     return -1;
 }
 
-int string_find_from(const char *string, const char *to_find, int from) {
-    if (!string || !to_find)
-        return -1;
-
-    int len = string_len(string);
-    int len2 = string_len(to_find);
-
-    if (!len || !len2)
-        return -1;
-    if (len2 > len)
-        return -1;
-
-    int index = from;
-    int i = 0;
-    int j = 0;
-
-    // I don't need to check the full length of string
-    // only as far as there is still enough space for it to contain to_find
-    int len_loop = len - len2 + 1;
-    while (index < len_loop) {
-        while (index < len_loop && string[index] != to_find[0]) {
-            index += 1;
-        }
-        if (string[index] == to_find[0]) {
-            i = index;
-            j = 0;
-            while (i < len && j < len2 && string[i] == to_find[j]) {
-                i += 1;
-                j += 1;
-            }
-            if (j == len2) {
-                return index;
-            }
-        }
-        index += 1;
-    }
-
-    return -1;
-}
-
 int string_find_char(const char *s, char to_find) {
     if (!s)
         return -1;
 
     int i = 0;
-    while (s[i] && to_find != s[i]) {
-        i += 1;
-    }
-
-    if (s[i]) {
-        return i;
-    } else {
-        return -1;
-    }
-}
-
-int string_find_char_from(const char *s, const char to_find, int from) {
-    if (!s)
-        return -1;
-
-    int i = from;
     while (s[i] && to_find != s[i]) {
         i += 1;
     }

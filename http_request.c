@@ -1,4 +1,6 @@
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 
@@ -31,6 +33,68 @@ void http_free_request(http_request *r) {
     free(r->fd);
     free(r);
     r = NULL; // is this necessary ?
+}
+
+char *http_multipart_get_boundary(http_request *r) {
+    if (!r)
+        return NULL;
+
+    char *content_type = http_header_get(r, "Content-Type");
+    if (!content_type)
+        return NULL;
+
+    int start = string_find(content_type, "multipart/form-data; boundary=");
+    if (start < 0) {
+        free(content_type);
+        return NULL;
+    }
+
+    char *boundary = (char *)malloc(128 * sizeof(char));
+    char *tmp = content_type + start + 30;
+
+    int end = strlen(tmp);
+    int i = 0;
+    for (; i < end; i++)
+        boundary[i] = tmp[i];
+    memcpy(boundary + i, "\r\n", 3);
+    
+    free(content_type);
+    return boundary;
+}
+
+char *http_header_get(http_request *r, const char *name) {
+    if (!r->header)
+        return NULL;
+    if (!name)
+        return NULL;
+
+    char *tmp = r->header;
+
+    char *fullname = (char *)malloc(64 * sizeof(char));
+    memcpy(fullname, "\r\n", 2);
+    memcpy(fullname + 2, name, strlen(name));
+    int start = string_find(tmp, fullname);
+
+    tmp += start + strlen(fullname);
+    free(fullname);
+
+    if (start < 0) {
+        return NULL;
+    }
+
+    if (tmp[0] != ':' &&
+        tmp[1] != ' ') {
+        return NULL;
+    }
+    tmp += 2;
+
+    int end = string_find(tmp, "\r\n");
+
+    char *header = (char *)malloc(end * sizeof(char));
+    for (int i = 0; i < end; i++)
+        header[i] = tmp[i];
+
+    return header;
 }
 
 /*  Parses r->method, r->path and r->query from the first line of the header.
@@ -95,7 +159,7 @@ int http_parse_first_line(http_request *r) {
     Returns 0 if successful
     Returns -1 if the connection ended before reaching "\r\n\r\n" or if the
     header was too large to fit the buffer */
-int http_read_header(http_request *r) {
+int _http_read_headers(http_request *r) {
     r->header = (char *)malloc(MAX_HEADER_LENGTH * sizeof(char));
     char *tmp = r->header;
 

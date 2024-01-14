@@ -63,6 +63,16 @@ int http_handle(http_server *server,
     then handles the requests on incoming connections */
 int http_listen_and_serve(const http_server *server);
 
+/*  Returns the bounary from the Content-Type: multipart/form-data header.
+    Returns NULL if header was not found.
+    The returned char * must be freed if not NULL. */
+char *http_multipart_get_boundary(http_request *r);
+
+/*  Reads the header 'name' from r->headers.
+    Returns NULL if header was not found.
+    The returned char * must be freed if not NULL. */
+char *http_header_get(http_request *r, const char *name);
+
 
 /*  Sets the status of the response header */
 void http_set_status(http_response_writer *w, http_status status);

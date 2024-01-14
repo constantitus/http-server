@@ -16,7 +16,7 @@ void http_free_request(http_request *r);
 
 int http_parse_first_line(http_request *r);
 
-int http_read_header(http_request *r);
+int _http_read_headers(http_request *r);
 
 
 http_response_writer *http_response_writer_new();
@@ -44,7 +44,6 @@ int http_handle(http_server *server,
     int count = 0;
     if (strcmp(pattern, "/") != 0) {
         count = server->handlers_count;
-        server->handlers_count++;
     }
     server->handlers[count] = malloc(sizeof(http_handlers));
     server->handlers[count]->func = handler;
@@ -57,7 +56,7 @@ int http_handle(http_server *server,
 static void *http_handler_mux(void *args) {
     http_request *r = (http_request *)args;
 
-    if (http_read_header(r) < 0) {
+    if (_http_read_headers(r) < 0) {
         send(*r->fd, "HTTP/1.1 413 Entity Too Large\r\n\r\n", 34, 0);
         close(*r->fd);
         free(r);
