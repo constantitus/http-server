@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdint.h>
 
 
@@ -278,5 +279,37 @@ int string_copy(char *destination, const char *source, int size) {
 	} else {
 		return 1;
 	}
+}
+
+char **string_split(const char *str, const char *sep, int *count) {
+	if (!str)
+		return NULL;
+	if (!sep)
+		return NULL;
+
+    char **res = (char **)malloc(32 * sizeof(char *));
+    const char *tmp = str;
+    int sep_len = string_len(sep);
+    int idx, found = 0;
+    _Bool last = 0;
+    for (idx = 0; !last; idx++) {
+        found = string_find(tmp, sep);
+        if (found < 0) {
+            found = string_len(tmp);
+            last = 1; // Last itteration
+        }
+        
+        res[idx] = (char *)malloc(found + 1 * sizeof(char));
+        int i = 0;
+        for (; i < found; i++) {
+            res[idx][i] = tmp[i];
+        }
+
+        tmp += found + sep_len;
+    }
+
+    *count = idx;
+
+    return res;
 }
 

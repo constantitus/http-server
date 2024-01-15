@@ -56,7 +56,6 @@ char *http_multipart_get_boundary(http_request *r) {
     int i = 0;
     for (; i < end; i++)
         boundary[i] = tmp[i];
-    memcpy(boundary + i, "\r\n", 3);
     
     free(content_type);
     return boundary;

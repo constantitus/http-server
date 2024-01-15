@@ -50,4 +50,16 @@ void string_shift(char *str);
 	Assume char *source is a correctly formatted UTF8 string. */
 int string_copy(char *destination, const char *source, int size);
 
+/*  Split slices 'str' into all substrings separated by 'sep' and returns a
+    char ** of the substrings between those separators. 'count' is the number
+    of substrings returned (or the number of 'sep' occurances + 1).
+
+    Returns NULL when 'str' or 'sep' are NULL.
+    Returns a char ** with a single element containing 'str' if 'sep' was not
+    found.
+
+    Resulting char ** must be freed if not NULL.
+    Each array element must be freed aswell. */
+char **string_split(char *str, const char *sep, int *count);
+
 #endif

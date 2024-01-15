@@ -2,6 +2,7 @@
 #define HTTP_SERVER_H
 
 #include <sys/types.h>
+#include <netinet/in.h>
 
 typedef enum {
     HTTP_OK = 200,
@@ -40,13 +41,13 @@ typedef struct {
 struct http_server {
     http_handlers **handlers;
     int handlers_count;
-    int port;
-    char *addr;
+    struct sockaddr_in *addr;
+    int max_connections;
 };
 
 
 /*  http_server initializer. */
-http_server *http_server_new();
+http_server *http_server_new(int port);
 
 /*  Set a 'handler' function for a specific 'path'.
     The 'handler' function must take (http_request *r, http_response_writer *2)

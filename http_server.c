@@ -25,30 +25,34 @@ void http_handle_writing(const http_request *r, http_response_writer *w);
 
 
 
-http_server *http_server_new() {
+http_server *http_server_new(int port) {
     http_server *server = (http_server *)malloc(sizeof(http_server));
     server->handlers = (http_handlers **)malloc(64 * sizeof(void *));
-    server->addr = "";
-    server->port = 8080;
+    server->addr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
+    server->addr->sin_family = AF_INET;
+    server->addr->sin_port = htons(port),
+    server->addr->sin_addr.s_addr = 0;
+    server->max_connections = 10;
+
     
     return server;
 }
 
 int http_handle(http_server *server,
-                char *pattern,
+                char *path,
                 void (*handler)(http_request *, http_response_writer *)
                 ) {
     if (!server->handlers)
         return -1; // Should never happen
 
     int count = 0;
-    if (strcmp(pattern, "/") != 0) {
+    if (strcmp(path, "/") != 0) { // Defaults "/" to 0
         count = server->handlers_count;
     }
-    server->handlers[count] = malloc(sizeof(http_handlers));
+    server->handlers[count] = (http_handlers *)malloc(sizeof(http_handlers));
     server->handlers[count]->func = handler;
-    server->handlers[count]->path = malloc(sizeof(char) * strlen(pattern));
-    server->handlers[count]->path = pattern;
+    server->handlers[count]->path = (char *)malloc(sizeof(char) * strlen(path));
+    server->handlers[count]->path = path;
     server->handlers_count++;
     return 0;
 }
@@ -96,38 +100,32 @@ int http_listen_and_serve(const http_server *server) {
     // Catch SIGPIPE
     signal(SIGPIPE, SIG_IGN);
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    struct sockaddr_in addr = {
-        AF_INET,
-        htons(server->port),
-        0,
-    };
-    if (string_len(server->addr))
-        addr.sin_addr.s_addr = inet_addr(server->addr);
+    int sockfd = socket(server->addr->sin_family, SOCK_STREAM, 0);
 
     // Don't leave the socket open after closing the server.
     int option = 1;
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &option, sizeof(option));
 
-
-    printf("Starting server on address %s:%d\n",
-           inet_ntoa(addr.sin_addr), server->port);
-
-    if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+    if (bind(sockfd,
+             (struct sockaddr *)server->addr,
+             sizeof(*server->addr)) < 0) {
         perror("bind failed");
         return -1;
     }
 
-    if (listen(sockfd, 10) < 0) {
+    if (listen(sockfd, server->max_connections) < 0) {
         perror("listen failed");
         return -1;
     }
 
+
+    printf("Starting server on address %s:%d\n",
+           inet_ntoa(server->addr->sin_addr), ntohs(server->addr->sin_port));
+
     while (1) {
         struct sockaddr_in client_addr;
         socklen_t client_addr_len = sizeof(client_addr);
-        int *clientfd = malloc(sizeof(int));
+        int *clientfd = (int *)malloc(sizeof(int));
 
         if ((*clientfd = accept(
             sockfd,

@@ -7,7 +7,8 @@
 #include "helpers.h"
 
 http_response_writer *http_response_writer_new() {
-    http_response_writer *w = malloc(sizeof(http_response_writer));
+    http_response_writer *w = (http_response_writer *)malloc(
+        sizeof(http_response_writer));
     w->headers = (char **)malloc(sizeof(void *) * 32);
     w->responses = (char **)malloc(sizeof(void *) * 256);
     w->headers_count = 0;
@@ -69,7 +70,7 @@ int http_write(http_response_writer *w, const char *buf, size_t len) {
         return -1; // Should not happen
     }
 
-    w->responses[w->resp_count] = malloc(len * sizeof(char));
+    w->responses[w->resp_count] = (char *)malloc(len * sizeof(char));
     string_copy(w->responses[w->resp_count], buf, len);
     w->resp_count++;
 
@@ -101,15 +102,6 @@ int http_set_header(http_response_writer *w,
                         "%s: %s\r\n",
                         name,
                         value);
-    if (written < 256) {
-        w->headers[w->headers_count] = realloc(w->headers[w->headers_count],
-                                              (256 + written) * sizeof(char));
-        snprintf(w->headers[w->headers_count],
-                 256,
-                 "%s: %s\r\n",
-                 name,
-                 value);
-    }
 
     w->headers_count++;
     return 0;
