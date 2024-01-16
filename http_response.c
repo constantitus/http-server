@@ -9,10 +9,15 @@
 http_response_writer *http_response_writer_new() {
     http_response_writer *w = (http_response_writer *)malloc(
         sizeof(http_response_writer));
-    w->headers = (char **)malloc(sizeof(void *) * 32);
-    w->responses = (char **)malloc(sizeof(void *) * 256);
+    w->headers = (char **)malloc(32 * sizeof(void *));
+    w->responses = (char **)malloc(32 * sizeof(void *));
     w->headers_count = 0;
     w->resp_count = 0;
+    
+    w->content_type = (char *)malloc(128 * sizeof(char));
+    memcpy(w->content_type,
+        "text/html; charset=utf-8",
+        25);
 
     return w;
 }
@@ -28,10 +33,12 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
             send(*r->fd, "HTTP/1.1 200 OK\r\n", 17, 0);
             break;
     }
-    // TODO: Let the user set the Content-Type
-    send(*r->fd, "Content-Type: text/html; charset=utf-8\r\n", 40, 0);
 
-    // Send the cookies
+    // Set Content-Type
+    http_set_header(w, "Content-Type", w->content_type);
+    free(w->content_type);
+
+    // Send the headers
     for (int i = 0; i < w->headers_count; i++) {
         if (!w->headers[i]) continue;
         send(*r->fd, w->headers[i], string_len(w->headers[i]), 0);
@@ -56,7 +63,6 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
     free(w->responses);
     w->responses = NULL;
     free(w);
-    w = NULL;
 }
 
 // Do we even need a function for this ?
@@ -88,6 +94,10 @@ int http_set_cookie(http_response_writer *w,
     int res = http_set_header(w, "Set-Cookie", cookie);
     free(cookie);
     return res;
+}
+
+void http_set_content_type(http_response_writer *w, const char* content_type) {
+    memcpy(w->content_type, content_type, string_len(content_type) + 1);
 }
 
 int http_set_header(http_response_writer *w,

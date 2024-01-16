@@ -301,9 +301,9 @@ char **string_split(const char *str, const char *sep, int *count) {
         
         res[idx] = (char *)malloc(found + 1 * sizeof(char));
         int i = 0;
-        for (; i < found; i++) {
+        for (; i < found; i++)
             res[idx][i] = tmp[i];
-        }
+        res[idx][i] = '\0';
 
         tmp += found + sep_len;
     }

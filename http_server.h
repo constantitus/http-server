@@ -3,6 +3,7 @@
 
 #include <sys/types.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 typedef enum {
     HTTP_OK = 200,
@@ -10,6 +11,7 @@ typedef enum {
 } http_status;
 
 typedef struct {
+    char *content_type;
     char **headers;
     char **responses;
     int headers_count;
@@ -33,36 +35,47 @@ typedef struct {
     char *path;
 } http_request;
 
+/*  http_serve_mux is a HTTP request multiplexer.
+    It matches the URL of each
+    incoming request against a list of registered patterns and calls the 
+    handler function for the pattern that matches the URL. */
 typedef struct {
-    void (*func)(http_request *, http_response_writer *);
-    char *path;
-} http_handlers;
+    pthread_mutex_t mu;
+
+    // Handlers
+    void (**funcs)(http_request *, http_response_writer *);
+    char **paths;
+    int count;
+} http_serve_mux;
 
 struct http_server {
-    http_handlers **handlers;
-    int handlers_count;
+    http_serve_mux *handler;
     struct sockaddr_in *addr;
     int max_connections;
 };
 
 
-/*  http_server initializer. */
-http_server *http_server_new(int port);
+
+/*  Allocates and returns a new http_serve_mux. */
+http_serve_mux *http_serve_mux_new();
+
+/*  Allocates and returns a new http_server on the specified port. */
+http_server *http_server_new(http_serve_mux *handler, int port);
 
 /*  Set a 'handler' function for a specific 'path'.
-    The 'handler' function must take (http_request *r, http_response_writer *2)
-    as arguments.
-    Memory for the http_request * is managed by the library and fd is closed 
-    automatically when the handler returns.
+    The http_request * and http_response_writer * are freed automatically when
+    the handler function returns.
     Returns 0 if successful. 
     Returns -1 in case of error. */
-int http_handle(http_server *server,
+int http_handle(http_serve_mux *mux,
                 char *pattern,
                 void (*handler)(http_request *, http_response_writer *));
 
-/*  Listens on the TCP network address server->addr and port server->port and
-    then handles the requests on incoming connections */
+/*  Listens on the TCP network address server->addr and then handles the
+    requests on incoming connections. */
 int http_listen_and_serve(const http_server *server);
+
+
 
 /*  Returns the bounary from the Content-Type: multipart/form-data header.
     Returns NULL if header was not found.
@@ -72,11 +85,15 @@ char *http_multipart_get_boundary(http_request *r);
 /*  Reads the header 'name' from r->headers.
     Returns NULL if header was not found.
     The returned char * must be freed if not NULL. */
-char *http_header_get(http_request *r, const char *name);
+char *http_get_header(http_request *r, const char *name);
 
 
 /*  Sets the status of the response header */
 void http_set_status(http_response_writer *w, http_status status);
+
+/*  Sets the Content-Type header. The default is text/html; charset=utf-8.
+    The header name and \r\n are added automatically. */
+void http_set_content_type(http_response_writer *w, const char *content_type);
 
 // TODO: Add more fields
 /*  Calls http_set_header with the "Set-Cookie" header name and the cookie

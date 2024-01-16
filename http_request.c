@@ -30,7 +30,9 @@ void http_free_request(http_request *r) {
         r->header = NULL;
     }
     close(*r->fd);
+    r->fd = NULL;
     free(r->fd);
+    r->fd = NULL;
     free(r);
     r = NULL; // is this necessary ?
 }
@@ -39,9 +41,11 @@ char *http_multipart_get_boundary(http_request *r) {
     if (!r)
         return NULL;
 
-    char *content_type = http_header_get(r, "Content-Type");
-    if (!content_type)
+    // ?????
+    char *content_type = http_get_header(r, "Content-Type");
+    if (!content_type) {
         return NULL;
+    }
 
     int start = string_find(content_type, "multipart/form-data; boundary=");
     if (start < 0) {
@@ -56,22 +60,26 @@ char *http_multipart_get_boundary(http_request *r) {
     int i = 0;
     for (; i < end; i++)
         boundary[i] = tmp[i];
+    boundary[i] = '\0';
     
     free(content_type);
     return boundary;
 }
 
-char *http_header_get(http_request *r, const char *name) {
-    if (!r->header)
+char *http_get_header(http_request *r, const char *name) {
+    if (!r->header) {
         return NULL;
-    if (!name)
+    }
+    if (!name) {
         return NULL;
+    }
 
     char *tmp = r->header;
 
     char *fullname = (char *)malloc(64 * sizeof(char));
     memcpy(fullname, "\r\n", 2);
-    memcpy(fullname + 2, name, strlen(name));
+    memcpy(fullname + 2, name, strlen(name) + 1);
+    
     int start = string_find(tmp, fullname);
 
     tmp += start + strlen(fullname);
@@ -90,8 +98,10 @@ char *http_header_get(http_request *r, const char *name) {
     int end = string_find(tmp, "\r\n");
 
     char *header = (char *)malloc(end * sizeof(char));
-    for (int i = 0; i < end; i++)
+    int i = 0;
+    for (; i < end; i++)
         header[i] = tmp[i];
+    header[i] = '\0';
 
     return header;
 }
@@ -141,6 +151,7 @@ int http_parse_first_line(http_request *r) {
     int i = 0;
     for (; i < path_end; i++)
         r->path[i] = tmp[i];
+    r->path[i] = '\0';
 
     if (qs_begin > 0 && qs_begin < end) {
         tmp += qs_begin + 1;

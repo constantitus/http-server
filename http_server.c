@@ -8,7 +8,6 @@
 #include <signal.h>
 
 #include "http_server.h"
-#include "helpers.h"
 
 http_request *http_request_new(int *fd, const http_server *server);
 
@@ -24,36 +23,51 @@ http_response_writer *http_response_writer_new();
 void http_handle_writing(const http_request *r, http_response_writer *w);
 
 
-
-http_server *http_server_new(int port) {
+http_server *http_server_new(http_serve_mux *handler, int port) {
     http_server *server = (http_server *)malloc(sizeof(http_server));
-    server->handlers = (http_handlers **)malloc(64 * sizeof(void *));
+    server->handler = handler;
     server->addr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in));
     server->addr->sin_family = AF_INET;
     server->addr->sin_port = htons(port),
     server->addr->sin_addr.s_addr = 0;
     server->max_connections = 10;
 
-    
     return server;
 }
 
-int http_handle(http_server *server,
-                char *path,
-                void (*handler)(http_request *, http_response_writer *)
-                ) {
-    if (!server->handlers)
-        return -1; // Should never happen
+http_serve_mux *http_serve_mux_new() {
+    http_serve_mux *mux = (http_serve_mux *)malloc(sizeof(http_serve_mux));
+    mux->funcs = (void (**)(http_request *, http_response_writer *))
+        malloc(sizeof(void *));
+    mux->paths = (char **)malloc(sizeof(char **));
 
-    int count = 0;
-    if (strcmp(path, "/") != 0) { // Defaults "/" to 0
-        count = server->handlers_count;
+    // Defaults path[0] to the root of the url ("/")
+    mux->paths[0] = (char *)calloc(2, sizeof(char *));
+    mux->paths[0][0] = '/';
+    mux->funcs[0] = NULL; // Prevent errors
+    mux->count = 0;
+
+    return mux;
+}
+
+int http_handle(http_serve_mux *mux,
+                char *pattern,
+                void (*handler)(http_request *, http_response_writer *)) {
+    if (!mux->funcs || !mux->paths) {
+        return -1;
     }
-    server->handlers[count] = (http_handlers *)malloc(sizeof(http_handlers));
-    server->handlers[count]->func = handler;
-    server->handlers[count]->path = (char *)malloc(sizeof(char) * strlen(path));
-    server->handlers[count]->path = path;
-    server->handlers_count++;
+
+    int idx;
+    if (strcmp(pattern, "/") == 0) {
+        idx = 0;
+        mux->funcs[0] = handler;
+    } else {
+        idx = mux->count != 0 ? mux->count : 1;
+    }
+    mux->paths[idx] = pattern;
+    mux->funcs[idx] = handler;
+    mux->count++;
+
     return 0;
 }
 
@@ -66,7 +80,6 @@ static void *http_handler_mux(void *args) {
         free(r);
         return NULL;
     }
-
     if (http_parse_first_line(r) < 0) {
         free(r->header);
         close(*r->fd);
@@ -74,25 +87,32 @@ static void *http_handler_mux(void *args) {
         return NULL;
     }
 
-    http_response_writer *w = http_response_writer_new();
+    http_serve_mux *mux = r->server->handler;
+    pthread_mutex_lock(&mux->mu);
 
-    for (int i = 0; i < r->server->handlers_count; i++) {
-        if (strcmp(r->server->handlers[i]->path, r->path) == 0) {
-            r->server->handlers[i]->func(r, w);
-            http_handle_writing(r, w);   
-            http_free_request(r);
-            return NULL;
+    void (*handler)(http_request *, http_response_writer *) = NULL;
+    for (int i = 0; i < r->server->handler->count; i++) {
+        if (strcmp(r->server->handler->paths[i], r->path) == 0) {
+            handler = r->server->handler->funcs[i];
+            break;
         }
     }
-    // Defaults to "/"
-    r->server->handlers[0]->func(r, w);
-    http_handle_writing(r, w);   
+    if (!handler)
+        handler = r->server->handler->funcs[0];
+    pthread_mutex_unlock(&mux->mu);
+
+    if (*handler) { // prevent errors if a handler for "/" was not defined
+        http_response_writer *w = http_response_writer_new();
+        handler(r, w);
+        http_handle_writing(r, w);   
+    }
+
     http_free_request(r);
     return NULL;
 }
 
 int http_listen_and_serve(const http_server *server) {
-    if (server->handlers_count == 0) {
+    if (server->handler->count == 0) {
         perror("No handlers defined");
         return -1;
     }
