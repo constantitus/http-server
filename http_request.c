@@ -114,9 +114,9 @@ char *http_get_header(http_request *r, const char *name) {
 int http_parse_first_line(http_request *r) {
     if (!r->header) return -1;
 
-    if (buffer_begins(r->header, "GET"))
+    if (string_begins(r->header, "GET"))
         r->method = HTTP_GET;
-    else if (buffer_begins(r->header, "POST"))
+    else if (string_begins(r->header, "POST"))
         r->method = HTTP_POST;
 
     int endl = string_find(r->header, "\r\n");

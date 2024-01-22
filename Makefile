@@ -2,8 +2,8 @@
 .SUFIXES: .c .o .h
 
 
-COMP			 =	$(CC) $(FLAGS)
-FLAGS			 = 	--debug -g
+COMP			 =	$(CC) $(CFLAGS)
+CFLAGS			 = 	
 BIN 			 = 	server
 OBJ 			 = 	main.o helpers.o http_server.o http_request.o http_response.o
 FILES 			 = 	*.c *.h
@@ -27,6 +27,9 @@ http_response.o: 	http_response.c
 	$(COMP) -c -o 	http_response.o http_response.c
 
 # $(OBJ): 			$(FILES)
+
+debug: CFLAGS += -g --debug
+debug: $(BIN)
 
 run: 				$(BIN)
 	./$(BIN)

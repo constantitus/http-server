@@ -1,16 +1,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-
-int buffer_begins(const char *buffer, const char *str) {
-    if (!buffer)
+int string_begins(const char *input, const char *str) {
+    if (!input)
         return 0;
     if (!str)
         return 0;
 
-    while (*str && *buffer == *str) {
+    while (*str && *input == *str) {
         str += 1;
-        buffer += 1;
+        input += 1;
     }
 
     if (*str) {
@@ -121,18 +120,15 @@ int string_cat(char *destination, const char *source, int size) {
     // we don't want to cut off the copying in the middle of a UTF8 codepoint
     // firstly check whether the next byte of source is either not present or
     // the start of a codepoint
-    if (*source && (*source & 128) &&
-        !(*source & 64)) {
+    if (*source && (*source & 128) && !(*source & 64)) {
         destination -= 1;
         // this while loop goes back while we have the 2nd, 3rd or 4th byte of
         // a UTF8 codepoint
-        while ((*destination & 128) &&
-               !(*destination & 64)) {
+        while ((*destination & 128) && !(*destination & 64)) {
             destination -= 1;
         }
         // this goes back from the head of a UTF8 codepoint
-        if ((*destination & 128) &&
-            (*destination & 64)) {
+        if ((*destination & 128) && (*destination & 64)) {
             *destination = 0;
         } else {
             // should never happen, this would be invalid UTF8
@@ -212,12 +208,10 @@ void string_shift(char *str) {
     int i = 1;
     int j = 1;
 
-    if ((str[i - j] & 128) &&
-        (str[i - j] & 64)) {
+    if ((str[i - j] & 128) && (str[i - j] & 64)) {
         j += 1;
         i += 1;
-        while ((str[i] & 128) &&
-               !(str[i] & 64)) {
+        while ((str[i] & 128) && !(str[i] & 64)) {
             j += 1;
             i += 1;
         }
@@ -231,61 +225,58 @@ void string_shift(char *str) {
 }
 
 int string_copy(char *destination, const char *source, int size) {
-	if (!destination)
-		return 0;
-	if (!source) {
-		*destination = 0;
-		return 1;
-	}
-	if (size <= 0)
-		return 0;
+    if (!destination)
+        return 0;
+    if (!source) {
+        *destination = 0;
+        return 1;
+    }
+    if (size <= 0)
+        return 0;
 
-	size -= 1;
+    size -= 1;
 
-	int i = 0;
-	while (*source && i < size) {
-		destination[i] = *source;
-		source += 1;
-		i += 1;
-	}
+    int i = 0;
+    while (*source && i < size) {
+        destination[i] = *source;
+        source += 1;
+        i += 1;
+    }
 
-	// we don't want to cut off the copying in the middle of a UTF8 codepoint
-	// firstly check whether the next byte of source is either not present or
+    // we don't want to cut off the copying in the middle of a UTF8 codepoint
+    // firstly check whether the next byte of source is either not present or
     // the start of a codepoint
-	if (*source && (*source & 128) &&
-		!(*source & 64)) {
-		i -= 1;
-		// this while loop goes back while we have the 2nd, 3rd or 4th byte of
+    if (*source && (*source & 128) && !(*source & 64)) {
+        i -= 1;
+        // this while loop goes back while we have the 2nd, 3rd or 4th byte of
         // a UTF8 codepoint
-		while ((destination[i] & 128) &&
-			   !(destination[i] & 64)) {
-			i -= 1;
-		}
-		// this goes back from the head of a UTF8 codepoint
-		if ((destination[i] & 128) &&
-			(destination[i] & 64)) {
-			destination[i] = 0;
-		} else {
-			// should never happen, this would be invalid UTF8
-			destination[i] = 0;
-			return 0;
-		}
-	}
+        while ((destination[i] & 128) && !(destination[i] & 64)) {
+            i -= 1;
+        }
+        // this goes back from the head of a UTF8 codepoint
+        if ((destination[i] & 128) && (destination[i] & 64)) {
+            destination[i] = 0;
+        } else {
+            // should never happen, this would be invalid UTF8
+            destination[i] = 0;
+            return 0;
+        }
+    }
 
-	destination[i] = '\0';
+    destination[i] = '\0';
 
-	if (*source) {
-		return 2;
-	} else {
-		return 1;
-	}
+    if (*source) {
+        return 2;
+    } else {
+        return 1;
+    }
 }
 
 char **string_split(const char *str, const char *sep, int *count) {
-	if (!str)
-		return NULL;
-	if (!sep)
-		return NULL;
+    if (!str)
+        return NULL;
+    if (!sep)
+        return NULL;
 
     char **res = (char **)malloc(32 * sizeof(char *));
     const char *tmp = str;
@@ -298,7 +289,7 @@ char **string_split(const char *str, const char *sep, int *count) {
             found = string_len(tmp);
             last = 1; // Last itteration
         }
-        
+
         res[idx] = (char *)malloc(found + 1 * sizeof(char));
         int i = 0;
         for (; i < found; i++)
@@ -312,4 +303,3 @@ char **string_split(const char *str, const char *sep, int *count) {
 
     return res;
 }
-

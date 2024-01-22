@@ -3,10 +3,10 @@
 #ifndef HELPERS_H
 #define HELPERS_H
 
-/*  Returns 1 if the buffer begins with string 'str'.
+/*  Returns 1 if the 'input' string begins with string 'str'.
     Returns 0 in all other cases, including errors and 'str' being longer than
     buffer */
-int buffer_begins(const char *buffer, const char *str);
+int string_begins(const char *input, const char *str);
 
 /*  Returns the length of a string in bytes.
     Unlike strlen, this function does not segfault when you give it a NULL
