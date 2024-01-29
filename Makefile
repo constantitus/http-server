@@ -26,10 +26,12 @@ http_request.o: 	http_request.c
 http_response.o: 	http_response.c
 	$(COMP) -c -o 	http_response.o http_response.c
 
-# $(OBJ): 			$(FILES)
-
 debug: CFLAGS += -g --debug
 debug: $(BIN)
+
+test: CFLAGS += -fsanitize=address
+test: debug
+
 
 run: 				$(BIN)
 	./$(BIN)
@@ -37,4 +39,4 @@ run: 				$(BIN)
 clean:
 	rm 				*.o $(BIN)
 
-.PHONY: run clean
+.PHONY: run clean debug

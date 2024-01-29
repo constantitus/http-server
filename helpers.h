@@ -1,65 +1,32 @@
-/*  All the functions I don't want to write twice */
-
+/*  Miscellaneous helper functions I don't want to write twice. */
 #ifndef HELPERS_H
 #define HELPERS_H
 
-/*  Returns 1 if the 'input' string begins with string 'str'.
-    Returns 0 in all other cases, including errors and 'str' being longer than
-    buffer */
-int string_begins(const char *input, const char *str);
+#include <stddef.h>
 
-/*  Returns the length of a string in bytes.
-    Unlike strlen, this function does not segfault when you give it a NULL
-    pointer, instead it returns zero */
-int string_len(const char *str);
+/*  Looks for an instance of c in s and returns it's index.
+    Returns -1 if it wasn't found. */
+int str_findchar(const char *s, const char c);
 
-/*  Concatenates two strings.
-    Will guarantee a NULL pointer at end of destination even if source is too
-    large to fit.
-    Will not cut off the copying in the middle of a UTF8 codepoint when out of
-    space.
-    Returns 1 if cat was successful.
-    Returns 2 if source was too large.
-    Returns 0 in case of error. */
-int string_cat(char *destination, const char *source, int size);
+#define str_findstr(x, y) str_findstring(x, strlen(x), y, strlen(y))
+/*  Looks for an instance of s2 in s1 and returns it's index.
+    Returns -1 if it wasn't found. */
+int str_findstring(const char *s1, size_t len1, const char *s2, size_t len2);
 
-/*  Look for an instance of 'to_find' in string returns index in string where
-    'to_find' was found.
-    Returns -1 when nothing was found */
-int string_find(const char *string, const char *to_find);
+/*  Checks to see if s1 starts with s2 and returns 1 if it does.
+    Returns 0 if it s1 doesn't start with s2 or is empty. */
+int str_starts(const char *s1, const char *s2);
 
-/*    Returns index of first instance of a character in a string.
-    Returns -1 if not found */
-int string_find_char(const char *s, const char to_find);
-
-/*  Removes an ascii char or unicode codepoint at front of string
-    assumes a valid utf8 string */
-void string_shift(char *str);
-
-/*  Safer alternative to strcpy or strncpy. int 'size' is the size of the
-    'destination'.
-	At most 'size' - 1 bytes will be written to 'destination' plus a NULL
-    character. This prevents buffer overflows.
-	You will get a NULL terminated string in 'destination' (unlike strncpy).
-	Will not cut off the copying in the middle of a UTF8 codepoint when out of
-    space.
-	Returns 1 if copy was successful.
-	Returns 2 if source could not be fully copied.
-	Returns 0 in case of error.
-
-	Assume char *source is a correctly formatted UTF8 string. */
-int string_copy(char *destination, const char *source, int size);
-
-/*  Split slices 'str' into all substrings separated by 'sep' and returns a
+/*  str_split slices 'str' into all substrings separated by 'sep' and returns a
     char ** of the substrings between those separators. 'count' is the number
     of substrings returned (or the number of 'sep' occurances + 1).
 
-    Returns NULL when 'str' or 'sep' are NULL.
+    Returns NULL when 'str' or 'sep' is empty.
     Returns a char ** with a single element containing 'str' if 'sep' was not
     found.
 
     Resulting char ** must be freed if not NULL.
-    Each array element must be freed aswell. */
-char **string_split(char *str, const char *sep, int *count);
+    Each char * element must be freed aswell. */
+char **str_split(const char *str, const char *sep, int *count);
 
 #endif

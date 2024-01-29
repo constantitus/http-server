@@ -4,18 +4,18 @@
 #include <sys/socket.h>
 
 #include "http_server.h"
-#include "helpers.h"
 
 http_response_writer *http_response_writer_new() {
     http_response_writer *w = (http_response_writer *)malloc(
         sizeof(http_response_writer));
     w->headers = (char **)malloc(32 * sizeof(void *));
     w->responses = (char **)malloc(32 * sizeof(void *));
-    w->headers_count = 0;
-    w->resp_count = 0;
+    w->header_cnt = 0;
+    w->resp_cnt = 0;
+    w->status = NULL;
     
     w->content_type = (char *)malloc(128 * sizeof(char));
-    memcpy(w->content_type,
+    memmove(w->content_type,
         "text/html; charset=utf-8",
         25);
 
@@ -23,15 +23,18 @@ http_response_writer *http_response_writer_new() {
 }
 
 void http_handle_writing(const http_request *r, http_response_writer *w) {
+    // TODO: Calling strlen too many times, just keep the lengths somewhere
+
     // Send the header
-    // TODO: Either add more status codes or just let the user set the status.
-    switch (w->status) {
-        case HTTP_NOT_FOUND:
-            send(*r->fd, "HTTP/1.1 404 Not Found\r\n", 24, 0);
-            break;
-        default: // case HTTP_OK:
-            send(*r->fd, "HTTP/1.1 200 OK\r\n", 17, 0);
-            break;
+    if (w->status) {
+        int len = strlen(w->status) + 12;
+        char *tmp = (char *)malloc(len * sizeof(char));
+        snprintf(tmp, len, "HTTP/1.1 %s\r\n", w->status);
+        send(*r->fd, tmp, len, 0);
+        free(w->status);
+        free(tmp);
+    } else {
+        send(*r->fd, "HTTP/1.1 200 OK\r\n", 17, 0);
     }
 
     // Set Content-Type
@@ -39,9 +42,9 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
     free(w->content_type);
 
     // Send the headers
-    for (int i = 0; i < w->headers_count; i++) {
+    for (int i = 0; i < w->header_cnt; i++) {
         if (!w->headers[i]) continue;
-        send(*r->fd, w->headers[i], string_len(w->headers[i]), 0);
+        send(*r->fd, w->headers[i], strlen(w->headers[i]), 0);
         free(w->headers[i]);
         w->headers[i] = NULL;
     }
@@ -52,10 +55,10 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
     send(*r->fd, "\r\n", 2, 0);
 
     // Send the response
-    if (w->resp_count > 0) {
-        for (int i = 0; i < w->resp_count; i++) {
+    if (w->resp_cnt > 0) {
+        for (int i = 0; i < w->resp_cnt; i++) {
             if (!w->responses[i]) continue;
-            send(*r->fd, w->responses[i], string_len(w->responses[i]), 0);
+            send(*r->fd, w->responses[i], strlen(w->responses[i]), 0);
             free(w->responses[i]);
             w->responses[i] = NULL;
         }
@@ -65,20 +68,26 @@ void http_handle_writing(const http_request *r, http_response_writer *w) {
     free(w);
 }
 
-// Do we even need a function for this ?
-void http_set_status(http_response_writer *w, http_status status) {
-    w->status = status;
+int http_set_status(http_response_writer *w, char *status) {
+    if (!*status)
+        return -1;
+    if (w->status) {
+        puts("http_set_status error: You are trying to set the status twice");
+        return -2;
+    }
+
+    int len = strlen(status);
+    w->status = (char *)malloc(len * sizeof(char));
+    memmove(w->status, status, len);
+    return 0;
 }
 
 int http_write(http_response_writer *w, const char *buf, size_t len) {
-    if (!buf) return -1;
-    if (!w->responses) {
-        return -1; // Should not happen
-    }
+    if (!*buf) return -1;
 
-    w->responses[w->resp_count] = (char *)malloc(len * sizeof(char));
-    string_copy(w->responses[w->resp_count], buf, len);
-    w->resp_count++;
+    w->responses[w->resp_cnt] = (char *)malloc(len * sizeof(char));
+    strncpy(w->responses[w->resp_cnt], buf, len); // Yes
+    w->resp_cnt++;
 
     return 0;
 }
@@ -97,7 +106,7 @@ int http_set_cookie(http_response_writer *w,
 }
 
 void http_set_content_type(http_response_writer *w, const char* content_type) {
-    memcpy(w->content_type, content_type, string_len(content_type) + 1);
+    memmove(w->content_type, content_type, strlen(content_type) + 1);
 }
 
 int http_set_header(http_response_writer *w,
@@ -106,13 +115,13 @@ int http_set_header(http_response_writer *w,
     if (!w->headers)
         return -1; // Should not happen
 
-    w->headers[w->headers_count] = (char *)malloc(256 * sizeof(char));
-    int written = snprintf(w->headers[w->headers_count],
+    w->headers[w->header_cnt] = (char *)malloc(256 * sizeof(char));
+    int written = snprintf(w->headers[w->header_cnt],
                         256,
                         "%s: %s\r\n",
                         name,
                         value);
 
-    w->headers_count++;
+    w->header_cnt++;
     return 0;
 }

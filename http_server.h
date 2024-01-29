@@ -1,22 +1,19 @@
 #ifndef HTTP_SERVER_H
 #define HTTP_SERVER_H
 
+// #ifdef HTTP_VERBOSE_ERRORS
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <pthread.h>
 
-typedef enum {
-    HTTP_OK = 200,
-    HTTP_NOT_FOUND = 404,
-} http_status;
-
 typedef struct {
+    char *status;
     char *content_type;
     char **headers;
     char **responses;
-    int headers_count;
-    int resp_count;
-    http_status status;
+    int header_cnt;
+    int resp_cnt;
 } http_response_writer;
 
 typedef enum {
@@ -35,10 +32,10 @@ typedef struct {
     char *path;
 } http_request;
 
-/*  http_serve_mux is a HTTP request multiplexer.
-    It matches the URL of each
-    incoming request against a list of registered patterns and calls the 
-    handler function for the pattern that matches the URL. */
+/*  http_serve_mux is the HTTP request multiplexer.
+    It matches the URL of each incoming request against a list of registered
+    patterns and calls the handler function for the pattern that matches the
+    URL (f it doesn't match the exact path, it defaults to "/"). */
 typedef struct {
     pthread_mutex_t mu;
 
@@ -88,8 +85,9 @@ char *http_multipart_get_boundary(http_request *r);
 char *http_get_header(http_request *r, const char *name);
 
 
-/*  Sets the status of the response header */
-void http_set_status(http_response_writer *w, http_status status);
+/*  Sets the status of the response header. The default is 200 OK.
+    "HTTP 1.1 " and "\r\n" are added automatically. */
+int http_set_status(http_response_writer *w, char *status);
 
 /*  Sets the Content-Type header. The default is text/html; charset=utf-8.
     The header name and \r\n are added automatically. */

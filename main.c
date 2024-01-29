@@ -4,8 +4,8 @@
 #include <arpa/inet.h>
 #include <string.h>
 
-#include "http_server.h"
 #include "helpers.h"
+#include "http_server.h"
 
 void index_handler(http_request *r, http_response_writer *w) {
     http_write(w, "<!Doctype html>"
@@ -31,22 +31,19 @@ void recv_handler(http_request *r, http_response_writer *w) {
         http_write(w, "Failed", 7);
         return;
     }
-    // printf("\"%s\"\n", boundary);
+    printf("[%s]\n", boundary);
 
-
-    char *buffer = (char *)malloc(1024 * sizeof(char));
+    char *buffer = (char *)calloc(1024 * 1024, sizeof(char));
     ssize_t bytes_received = recv(*r->fd, buffer, 1024, 0);
-    // if (bytes_received > 0) printf("%s\n", buffer);
     if (bytes_received < 1) {
         free(buffer);
         free(boundary);
         return;
     }
-    // printf("[%s]\n", boundary);
 
     // printf("Buffer:[%s]\n", buffer);
     int *count = (int *)malloc(sizeof(int));
-    char **fields = string_split(buffer, boundary, count);
+    char **fields = str_split(buffer, boundary, count);
 
     // Do something with the fields
     for (int i = 0; i < *count; i++) {

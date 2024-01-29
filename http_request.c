@@ -11,93 +11,75 @@
 
 http_request *http_request_new(int *fd, const http_server *server) {
     http_request *r = (http_request *)malloc(sizeof(http_request));
+    r->query = NULL;
+    r->path = NULL;
+    r->header = NULL;
     r->fd = fd;
     r->server = server;
     return r;
 }
 
 void http_free_request(http_request *r) {
-    if (r->query) {
+    if (r->query)
         free(r->query);
-        r->query = NULL;
-    }
-    if (r->path) {
+    if (r->path)
         free(r->path);
-        r->path = NULL;
-    }
-    if (r->header) {
+    if (r->header)
         free(r->header);
-        r->header = NULL;
-    }
     close(*r->fd);
-    r->fd = NULL;
     free(r->fd);
-    r->fd = NULL;
     free(r);
-    r = NULL; // is this necessary ?
 }
 
 char *http_multipart_get_boundary(http_request *r) {
-    if (!r)
-        return NULL;
-
     // ?????
     char *content_type = http_get_header(r, "Content-Type");
-    if (!content_type) {
+    if (!content_type)
         return NULL;
-    }
 
-    int start = string_find(content_type, "multipart/form-data; boundary=");
+    int start = str_findstr(content_type, "multipart/form-data; boundary=");
     if (start < 0) {
         free(content_type);
         return NULL;
     }
 
-    char *boundary = (char *)malloc(128 * sizeof(char));
     char *tmp = content_type + start + 30;
 
     int end = strlen(tmp);
-    int i = 0;
-    for (; i < end; i++)
-        boundary[i] = tmp[i];
-    boundary[i] = '\0';
+    char *boundary = (char *)malloc((end + 1) * sizeof(char));
+    memmove(boundary, tmp, end);
+    boundary[end] = '\0';
     
     free(content_type);
     return boundary;
 }
 
 char *http_get_header(http_request *r, const char *name) {
-    if (!r->header) {
+    if (!*name)
         return NULL;
-    }
-    if (!name) {
-        return NULL;
-    }
 
     char *tmp = r->header;
 
     char *fullname = (char *)malloc(64 * sizeof(char));
-    memcpy(fullname, "\r\n", 2);
-    memcpy(fullname + 2, name, strlen(name) + 1);
+    memmove(fullname, "\r\n", 2);
+    memmove(fullname + 2, name, strlen(name) + 1);
     
-    int start = string_find(tmp, fullname);
+    int start = str_findstr(tmp, fullname);
 
     tmp += start + strlen(fullname);
     free(fullname);
 
-    if (start < 0) {
+    if (start < 0)
         return NULL;
-    }
 
-    if (tmp[0] != ':' &&
-        tmp[1] != ' ') {
+    if (tmp[0] != ':' && tmp[1] != ' ')
         return NULL;
-    }
+
     tmp += 2;
 
-    int end = string_find(tmp, "\r\n");
+    int end = str_findstr(tmp, "\r\n");
 
-    char *header = (char *)malloc(end * sizeof(char));
+    char *header = (char *)malloc((end + 1) * sizeof(char));
     int i = 0;
     for (; i < end; i++)
         header[i] = tmp[i];
@@ -111,16 +93,14 @@ char *http_get_header(http_request *r, const char *name) {
     "GET /path?query_string=value HTTP/1.1\r\n".
     Returns -1 if error, (url not found, url doesn't end in ' ').
     Returns 0 if successful. */
-int http_parse_first_line(http_request *r) {
-    if (!r->header) return -1;
-
-    if (string_begins(r->header, "GET"))
+int _http_parse_first_line(http_request *r) {
+    if (str_starts(r->header, "GET"))
         r->method = HTTP_GET;
-    else if (string_begins(r->header, "POST"))
+    else if (str_starts(r->header, "POST"))
         r->method = HTTP_POST;
 
-    int endl = string_find(r->header, "\r\n");
-    const int path_start = string_find_char(r->header, '/');
+    int endl = str_findstr(r->header, "\r\n");
+    const int path_start = str_findchar(r->header, '/');
     // There should be a '/' on the first line.
     if (path_start > endl)
         return -1;
@@ -128,7 +108,7 @@ int http_parse_first_line(http_request *r) {
     char *tmp = r->header + path_start;
     endl -= path_start;
 
-    const int end = string_find_char(tmp, ' ');
+    const int end = str_findchar(tmp, ' ');
     if (end <= 1) {
         r->path = (char *)malloc(2 * sizeof(char));
         r->path[0] = '/';
@@ -139,7 +119,7 @@ int http_parse_first_line(http_request *r) {
     if (end > endl)
         return -1;
 
-    const int qs_begin = string_find_char(tmp, '?');
+    const int qs_begin = str_findchar(tmp, '?');
 
     int path_end;
     if (qs_begin > 0 && qs_begin < end)

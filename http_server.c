@@ -13,7 +13,7 @@ http_request *http_request_new(int *fd, const http_server *server);
 
 void http_free_request(http_request *r);
 
-int http_parse_first_line(http_request *r);
+int _http_parse_first_line(http_request *r);
 
 int _http_read_headers(http_request *r);
 
@@ -37,9 +37,10 @@ http_server *http_server_new(http_serve_mux *handler, int port) {
 
 http_serve_mux *http_serve_mux_new() {
     http_serve_mux *mux = (http_serve_mux *)malloc(sizeof(http_serve_mux));
+    // TODO: Assuming maximum of 16 handlers. Should realloc when exceeded.
     mux->funcs = (void (**)(http_request *, http_response_writer *))
-        malloc(sizeof(void *));
-    mux->paths = (char **)malloc(sizeof(char **));
+        malloc(16 * sizeof(void *));
+    mux->paths = (char **)malloc(16 * sizeof(char **));
 
     // Defaults path[0] to the root of the url ("/")
     mux->paths[0] = (char *)calloc(2, sizeof(char *));
@@ -53,17 +54,15 @@ http_serve_mux *http_serve_mux_new() {
 int http_handle(http_serve_mux *mux,
                 char *pattern,
                 void (*handler)(http_request *, http_response_writer *)) {
-    if (!mux->funcs || !mux->paths) {
+    if (!mux->funcs || !mux->paths)
         return -1;
-    }
 
-    int idx;
-    if (strcmp(pattern, "/") == 0) {
-        idx = 0;
+    int idx = 0;
+    if (strcmp(pattern, "/") == 0)
         mux->funcs[0] = handler;
-    } else {
+    else
         idx = mux->count != 0 ? mux->count : 1;
-    }
+
     mux->paths[idx] = pattern;
     mux->funcs[idx] = handler;
     mux->count++;
@@ -80,7 +79,7 @@ static void *http_handler_mux(void *args) {
         free(r);
         return NULL;
     }
-    if (http_parse_first_line(r) < 0) {
+    if (_http_parse_first_line(r) < 0) {
         free(r->header);
         close(*r->fd);
         free(r);
